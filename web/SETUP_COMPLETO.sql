@@ -1,0 +1,12 @@
+cat: supabase/migrations/001_enums_e_tenants.sql: No such file or directory
+cat: supabase/migrations/002_usuarios.sql: No such file or directory
+cat: supabase/migrations/003_funcionarios.sql: No such file or directory
+cat: supabase/migrations/004_epis_estoque.sql: No such file or directory
+cat: supabase/migrations/005_treinamentos.sql: No such file or directory
+cat: supabase/migrations/006_acidentes_documentos.sql: No such file or directory
+cat: supabase/migrations/007_assinaturas_notificacoes.sql: No such file or directory
+cat: supabase/migrations/009_seed_inicial.sql: No such file or directory
+cat: supabase/migrations/010_indices_performance.sql: No such file or directory
+cat: supabase/migrations/012_fase3_policies_update.sql: No such file or directory
+cat: supabase/migrations/20260608_notificacoes.sql: No such file or directory
+cat: supabase/migrations/20260608_rpc_estoque_critico.sql: No such file or directory
