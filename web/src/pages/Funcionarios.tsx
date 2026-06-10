@@ -182,7 +182,7 @@ export default function Funcionarios() {
               keyExtractor={f => f.id}
               acoes={(f) => (
                 <div className="flex items-center gap-1">
-                  <Button variant="ghost" size="icon" onClick={() => navigate(`/funcionarios/${f.id}`)} title="Ver ficha"><Eye className="h-3.5 w-3.5" /></Button>
+                  <Button variant="ghost" size="icon" onClick={() => navigate(`/app/funcionarios/${f.id}`)} title="Ver ficha"><Eye className="h-3.5 w-3.5" /></Button>
                   <Button variant="ghost" size="icon" onClick={() => abrirModal(f)} title="Editar"><Pencil className="h-3.5 w-3.5" /></Button>
                   {f.ativo && (
                     <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => setConfirmDesativar(f)} title="Desativar">
