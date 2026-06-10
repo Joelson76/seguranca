@@ -104,28 +104,46 @@ export default function Acidentes() {
     try {
       for (const arquivo of evidencias) {
         const path = `acidentes/${acidenteSelecionado.id}/${Date.now()}_${arquivo.name}`
+        console.log('📤 Tentando upload:', path)
+
         const { data: uploaded, error: uploadError } = await supabase.storage.from('documentos').upload(path, arquivo)
-        if (uploadError) throw uploadError
+
+        if (uploadError) {
+          console.error('❌ Erro no upload:', uploadError)
+          throw uploadError
+        }
+
+        console.log('✅ Upload bem-sucedido:', uploaded)
 
         if (uploaded) {
-          // Salva apenas o path, não a URL pública (bucket é privado)
-          const { error: insertError } = await supabase.from('documentos').insert({
+          const registro = {
             nome: arquivo.name,
             tipo: 'Evidência de acidente',
-            arquivo_url: uploaded.path, // Salva o path, não a URL
+            arquivo_url: uploaded.path,
             acidente_id: acidenteSelecionado.id,
             tenant_id: acidenteSelecionado.tenant_id,
-          })
-          if (insertError) throw insertError
+          }
+
+          console.log('💾 Salvando no banco:', registro)
+
+          const { error: insertError } = await supabase.from('documentos').insert(registro)
+
+          if (insertError) {
+            console.error('❌ Erro ao inserir no banco:', insertError)
+            throw insertError
+          }
+
+          console.log('✅ Registro salvo no banco')
         }
       }
       toast.success(`${evidencias.length} evidência(s) enviada(s)`)
+      await refetchEvidencias()
       setEvidencias([])
       setFileInputKey(Date.now())
       setModalEvidencias(false)
     } catch (err) {
-      console.error('Erro ao enviar evidências:', err)
-      toast.error('Erro ao enviar evidências')
+      console.error('❌ Erro geral ao enviar evidências:', err)
+      toast.error(`Erro: ${err instanceof Error ? err.message : 'Erro desconhecido'}`)
     }
     finally { setEnviandoEvid(false) }
   }
