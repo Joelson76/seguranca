@@ -268,7 +268,7 @@ export default function Entregas() {
               </div>
               <div className="space-y-2">
                 <Label>Vencimento do EPI</Label>
-                <Input type="date" {...register('REMOVIDO')} />
+                <Input type="date" {...register('data_vencimento')} />
               </div>
             </div>
             <div className="space-y-2">

@@ -114,7 +114,7 @@ export default function Epis() {
   }
 
   async function onSubmitEpi(data: FormEpi) {
-    await salvarEpi.mutateAsync({ ...data, ...(editando ? { id: editando.id } : {}) })
+    await salvarEpi(data)
   }
 
   async function onSubmitMov(data: FormMov) {
