@@ -40,11 +40,14 @@ function NavItem({ href, icon: Icon, label, collapsed }: {
   )
 }
 
-export function Sidebar() {
-  const { sidebarAberta, toggleSidebar, setSidebarAberta } = useUIStore()
-  const { perfil } = useAuthStore()
-
-  const SidebarContent = ({ mobile = false }: { mobile?: boolean }) => (
+function SidebarContent({ mobile = false, sidebarAberta, toggleSidebar, setSidebarAberta, perfil }: {
+  mobile?: boolean
+  sidebarAberta: boolean
+  toggleSidebar: () => void
+  setSidebarAberta: (aberta: boolean) => void
+  perfil: { perfil: string } | null
+}) {
+  return (
     <>
       {/* Logo */}
       <div className="flex items-center h-16 px-4 border-b border-border shrink-0">
@@ -76,6 +79,11 @@ export function Sidebar() {
       </nav>
     </>
   )
+}
+
+export function Sidebar() {
+  const { sidebarAberta, toggleSidebar, setSidebarAberta } = useUIStore()
+  const { perfil } = useAuthStore()
 
   return (
     <>
@@ -84,7 +92,12 @@ export function Sidebar() {
         'fixed left-0 top-0 z-40 h-screen bg-white dark:bg-gray-900 border-r border-border transition-all duration-300 flex-col hidden lg:flex',
         sidebarAberta ? 'w-64' : 'w-16'
       )}>
-        <SidebarContent />
+        <SidebarContent
+          sidebarAberta={sidebarAberta}
+          toggleSidebar={toggleSidebar}
+          setSidebarAberta={setSidebarAberta}
+          perfil={perfil}
+        />
       </aside>
 
       {/* Mobile overlay */}
@@ -100,7 +113,13 @@ export function Sidebar() {
         'fixed left-0 top-0 z-40 h-screen w-72 bg-white dark:bg-gray-900 border-r border-border flex flex-col lg:hidden transition-transform duration-300',
         sidebarAberta ? 'translate-x-0' : '-translate-x-full'
       )}>
-        <SidebarContent mobile />
+        <SidebarContent
+          mobile
+          sidebarAberta={sidebarAberta}
+          toggleSidebar={toggleSidebar}
+          setSidebarAberta={setSidebarAberta}
+          perfil={perfil}
+        />
       </aside>
     </>
   )

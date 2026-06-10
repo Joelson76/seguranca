@@ -9,7 +9,6 @@ import { useAuthStore } from '@/store/authStore'
 import { useAuth } from '@/hooks/useAuth'
 import { useNotificacoes, type Notificacao } from '@/hooks/useNotificacoes'
 import { formatDateTime } from '@/lib/utils'
-import { cn } from '@/lib/utils'
 
 const ICONES_TIPO: Record<string, React.ElementType> = {
   estoque: Package,
