@@ -43,7 +43,7 @@ export function useUploadDocumento() {
         throw new Error('Tenant não encontrado. Faça login novamente.')
       }
 
-      const path = `documentos/${Date.now()}_${arquivo.name}`
+      const path = `documentos/${Date.now()}_${arquivo.name}` // Subpasta para organização
       const { data: uploaded, error: uploadError } = await supabase.storage
         .from('documentos')
         .upload(path, arquivo)

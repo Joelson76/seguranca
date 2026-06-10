@@ -103,10 +103,10 @@ export default function Acidentes() {
     setEnviandoEvid(true)
     try {
       for (const arquivo of evidencias) {
-        const path = `acidentes/${acidenteSelecionado.id}/${Date.now()}_${arquivo.name}`
+        const path = `${acidenteSelecionado.id}/${Date.now()}_${arquivo.name}`
         console.log('📤 Tentando upload:', path)
 
-        const { data: uploaded, error: uploadError } = await supabase.storage.from('documentos').upload(path, arquivo)
+        const { data: uploaded, error: uploadError } = await supabase.storage.from('acidentes').upload(path, arquivo)
 
         if (uploadError) {
           console.error('❌ Erro no upload:', uploadError)
@@ -151,7 +151,7 @@ export default function Acidentes() {
   async function abrirEvidencia(path: string) {
     // Gera URL assinada válida por 1 hora (bucket privado)
     const { data, error } = await supabase.storage
-      .from('documentos')
+      .from('acidentes')
       .createSignedUrl(path, 3600)
 
     if (error || !data) {

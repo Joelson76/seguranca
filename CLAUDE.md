@@ -44,11 +44,12 @@
 Ver arquivos em: supabase/migrations/
 
 ## Buckets Supabase Storage
-- documentos (privado)
-- assinaturas (privado)
-- fotos-funcionario (privado)
-- certificados (privado)
-- logos (público)
+- documentos (privado) — PDFs, Word, Excel de SST (PCMSO, PGR, etc.)
+- acidentes (privado) — Evidências e laudos de acidentes
+- assinaturas (privado) — Assinaturas digitais de entregas EPI
+- fotos-funcionario (privado) — Fotos cadastrais
+- certificados (privado) — Certificados de treinamentos
+- logos (público) — Logotipos das empresas
 
 ## Fases concluídas
 - [x] Fase 1: Setup + Auth + Banco + Funcionários
