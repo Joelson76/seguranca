@@ -108,13 +108,13 @@ export default function Acidentes() {
         if (uploadError) throw uploadError
 
         if (uploaded) {
-          const { data: urlData } = supabase.storage.from('documentos').getPublicUrl(uploaded.path)
+          // Salva apenas o path, não a URL pública (bucket é privado)
           const { error: insertError } = await supabase.from('documentos').insert({
             nome: arquivo.name,
             tipo: 'Evidência de acidente',
-            arquivo_url: urlData.publicUrl,
+            arquivo_url: uploaded.path, // Salva o path, não a URL
             acidente_id: acidenteSelecionado.id,
-            tenant_id: acidenteSelecionado.tenant_id, // ✅ CORRIGIDO: adiciona tenant_id
+            tenant_id: acidenteSelecionado.tenant_id,
           })
           if (insertError) throw insertError
         }
@@ -130,8 +130,18 @@ export default function Acidentes() {
     finally { setEnviandoEvid(false) }
   }
 
-  function abrirEvidencia(url: string) {
-    window.open(url, '_blank', 'noopener,noreferrer')
+  async function abrirEvidencia(path: string) {
+    // Gera URL assinada válida por 1 hora (bucket privado)
+    const { data, error } = await supabase.storage
+      .from('documentos')
+      .createSignedUrl(path, 3600)
+
+    if (error || !data) {
+      toast.error('Erro ao abrir evidência')
+      return
+    }
+
+    window.open(data.signedUrl, '_blank', 'noopener,noreferrer')
   }
 
   const colunas = [

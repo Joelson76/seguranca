@@ -3,6 +3,7 @@ import { Plus, FileText, Download, Trash2 } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -13,6 +14,7 @@ import { SkeletonCard } from '@/components/ui/skeleton'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { useDocumentos, useUploadDocumento, useExcluirDocumento, type Documento } from '@/hooks/useDocumentos'
+import { supabase } from '@/lib/supabase'
 import { formatDate } from '@/lib/utils'
 
 const TIPOS_DOC = ['PCMSO', 'PGR', 'PPRA', 'LTCAT', 'APR', 'Procedimento', 'Certificado', 'Outro']
@@ -45,6 +47,20 @@ export default function Documentos() {
   const { register, handleSubmit, reset, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema) as any,
   })
+
+  async function abrirDocumento(path: string) {
+    // Gera URL assinada válida por 1 hora (bucket privado)
+    const { data, error } = await supabase.storage
+      .from('documentos')
+      .createSignedUrl(path, 3600)
+
+    if (error || !data) {
+      toast.error('Erro ao abrir documento')
+      return
+    }
+
+    window.open(data.signedUrl, '_blank', 'noopener,noreferrer')
+  }
 
   async function onSubmit(data: FormData) {
     if (!arquivo) return
@@ -112,7 +128,7 @@ export default function Documentos() {
                     <div className="flex gap-2 mt-3">
                       <Button
                         variant="outline" size="sm" className="flex-1"
-                        onClick={() => window.open(doc.arquivo_url, '_blank')}
+                        onClick={() => abrirDocumento(doc.arquivo_url)}
                       >
                         <Download className="h-3 w-3 mr-1" /> Baixar
                       </Button>

@@ -49,14 +49,13 @@ export function useUploadDocumento() {
         .upload(path, arquivo)
       if (uploadError) throw uploadError
 
-      const { data: urlData } = supabase.storage.from('documentos').getPublicUrl(uploaded.path)
-
+      // Salva apenas o path (bucket privado)
       const { error } = await supabase.from('documentos').insert({
         nome,
         tipo,
         descricao: descricao || undefined,
         validade: validade || undefined,
-        arquivo_url: urlData.publicUrl,
+        arquivo_url: uploaded.path, // Salva o path, não a URL
         tenant_id: perfil.tenant_id,
       })
       if (error) throw error
