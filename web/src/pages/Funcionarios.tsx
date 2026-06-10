@@ -57,7 +57,6 @@ export default function Funcionarios() {
   const desativar = useDesativarFuncionario()
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<FormData>({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(schema) as any,
   })
 
@@ -92,7 +91,7 @@ export default function Funcionarios() {
       setModalAberto(false)
       reset()
     } catch {
-      // Erros tratados nos hooks
+      // Hook já trata erro
     }
   }
 

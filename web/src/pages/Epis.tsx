@@ -86,7 +86,7 @@ export default function Epis() {
       formEpi.reset()
       setEditando(null)
     } catch (error) {
-      // Erro já tratado pelos hooks
+      // Hook já trata erro
     }
   }
 

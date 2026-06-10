@@ -32,9 +32,6 @@ export default function Registro() {
   async function onSubmit(data: FormData) {
     setSalvando(true)
     try {
-      console.log('1. Criando usuário no Supabase Auth...')
-
-      // 1. Criar usuário no Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: data.email,
         password: data.senha,
@@ -46,10 +43,6 @@ export default function Registro() {
       if (authError) throw authError
       if (!authData.user) throw new Error('Usuário não foi criado')
 
-      console.log('2. Usuário criado:', authData.user.id)
-
-      // 2. Criar tenant
-      console.log('3. Criando tenant (empresa)...')
       const { data: tenant, error: tenantError } = await supabase
         .from('tenants')
         .insert({
@@ -61,15 +54,8 @@ export default function Registro() {
         .select()
         .single()
 
-      if (tenantError) {
-        console.error('Erro ao criar tenant:', tenantError)
-        throw tenantError
-      }
+      if (tenantError) throw tenantError
 
-      console.log('4. Tenant criado:', tenant.id)
-
-      // 3. Criar perfil do usuário
-      console.log('5. Criando perfil do usuário...')
       const { error: perfilError } = await supabase
         .from('usuarios')
         .insert({
@@ -81,15 +67,8 @@ export default function Registro() {
           ativo: true
         })
 
-      if (perfilError) {
-        console.error('Erro ao criar perfil:', perfilError)
-        throw perfilError
-      }
+      if (perfilError) throw perfilError
 
-      console.log('6. Perfil criado')
-
-      // 4. Criar assinatura trial
-      console.log('7. Criando assinatura trial...')
       const { error: assinaturaError } = await supabase
         .from('assinaturas')
         .insert({
@@ -103,20 +82,15 @@ export default function Registro() {
 
       if (assinaturaError) {
         console.error('Erro ao criar assinatura:', assinaturaError)
-        // Não falha se assinatura der erro
       }
-
-      console.log('8. Assinatura criada')
 
       toast.success('Conta criada com sucesso! Redirecionando...')
 
-      // Aguardar 1 segundo e redirecionar
       setTimeout(() => {
         navigate('/app/dashboard')
       }, 1000)
 
     } catch (err: any) {
-      console.error('Erro completo:', err)
       const msg = err.message || 'Erro ao criar conta'
       toast.error(msg)
     } finally {

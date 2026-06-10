@@ -245,9 +245,8 @@ export default function VencimentosDashboard() {
               colunas={colunas}
               dados={vencimentos}
               keyExtractor={(v) => v.id}
-              acoes={(v) => {
-                console.log('Vencimento:', v.funcionario_nome, 'certificado_url:', v.certificado_url)
-                return v.certificado_url ? (
+              acoes={(v) => (
+                v.certificado_url ? (
                   <a href={v.certificado_url} target="_blank" rel="noopener noreferrer">
                     <Button variant="ghost" size="icon" title="Ver certificado">
                       <ExternalLink className="h-3.5 w-3.5" />
@@ -256,7 +255,7 @@ export default function VencimentosDashboard() {
                 ) : (
                   <span className="text-xs text-muted-foreground">Sem certificado</span>
                 )
-              }}
+              )}
             />
           )}
         </CardContent>

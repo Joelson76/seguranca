@@ -80,8 +80,7 @@ export default function Acidentes() {
         .select('*')
         .eq('acidente_id', acidenteSelecionado.id)
         .order('criado_em', { ascending: false })
-      console.log('🔍 Evidências encontradas:', data, 'Erro:', error)
-      if (error) console.error('❌ Erro ao buscar evidências:', error)
+      if (error) throw error
       return data ?? []
     },
     enabled: !!acidenteSelecionado?.id,
@@ -104,16 +103,10 @@ export default function Acidentes() {
     try {
       for (const arquivo of evidencias) {
         const path = `${acidenteSelecionado.id}/${Date.now()}_${arquivo.name}`
-        console.log('📤 Tentando upload:', path)
 
         const { data: uploaded, error: uploadError } = await supabase.storage.from('acidentes').upload(path, arquivo)
 
-        if (uploadError) {
-          console.error('❌ Erro no upload:', uploadError)
-          throw uploadError
-        }
-
-        console.log('✅ Upload bem-sucedido:', uploaded)
+        if (uploadError) throw uploadError
 
         if (uploaded) {
           const registro = {
@@ -124,16 +117,9 @@ export default function Acidentes() {
             tenant_id: acidenteSelecionado.tenant_id,
           }
 
-          console.log('💾 Salvando no banco:', registro)
-
           const { error: insertError } = await supabase.from('documentos').insert(registro)
 
-          if (insertError) {
-            console.error('❌ Erro ao inserir no banco:', insertError)
-            throw insertError
-          }
-
-          console.log('✅ Registro salvo no banco')
+          if (insertError) throw insertError
         }
       }
       toast.success(`${evidencias.length} evidência(s) enviada(s)`)
@@ -142,7 +128,6 @@ export default function Acidentes() {
       setFileInputKey(Date.now())
       setModalEvidencias(false)
     } catch (err) {
-      console.error('❌ Erro geral ao enviar evidências:', err)
       toast.error(`Erro: ${err instanceof Error ? err.message : 'Erro desconhecido'}`)
     }
     finally { setEnviandoEvid(false) }

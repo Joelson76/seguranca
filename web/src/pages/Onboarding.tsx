@@ -31,7 +31,6 @@ export default function Onboarding() {
   const [salvando, setSalvando] = useState(false)
 
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(schema) as any,
   })
 
