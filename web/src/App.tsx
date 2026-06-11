@@ -28,6 +28,8 @@ const Documentos     = lazy(() => import('@/pages/Documentos'))
 const Relatorios     = lazy(() => import('@/pages/Relatorios'))
 const Notificacoes   = lazy(() => import('@/pages/app/Notificacoes').then(m => ({ default: m.Notificacoes })))
 const Configuracoes  = lazy(() => import('@/pages/Configuracoes'))
+const ExportarDados  = lazy(() => import('@/pages/ExportarDados'))
+const ExcluirConta   = lazy(() => import('@/pages/ExcluirConta'))
 const SuperAdmin     = lazy(() => import('@/pages/SuperAdmin'))
 const Diagnostico    = lazy(() => import('@/pages/Diagnostico'))
 const NotFound       = lazy(() => import('@/pages/NotFound'))
@@ -97,6 +99,8 @@ export default function App() {
                 <Route path="/app/relatorios" element={<Relatorios />} />
                 <Route path="/app/notificacoes" element={<Notificacoes />} />
                 <Route path="/app/configuracoes" element={<Configuracoes />} />
+                <Route path="/app/exportar-dados" element={<ExportarDados />} />
+                <Route path="/app/excluir-conta" element={<ExcluirConta />} />
                 <Route
                   path="/admin"
                   element={
