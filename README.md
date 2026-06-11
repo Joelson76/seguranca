@@ -1,7 +1,14 @@
 # SafeTrack — SaaS de Gestão SST
 
+![CI](https://github.com/SEU-USUARIO/SafeTrack/workflows/CI%20-%20Testes%20e%20Build/badge.svg)
+![E2E](https://github.com/SEU-USUARIO/SafeTrack/workflows/E2E%20-%20Testes%20End-to-End/badge.svg)
+![Deploy](https://github.com/SEU-USUARIO/SafeTrack/workflows/Deploy%20-%20Vercel/badge.svg)
+[![codecov](https://codecov.io/gh/SEU-USUARIO/SafeTrack/branch/master/graph/badge.svg)](https://codecov.io/gh/SEU-USUARIO/SafeTrack)
+
 Plataforma completa de Segurança e Saúde no Trabalho (SST) para o mercado brasileiro.
 Multi-tenant, responsivo, com isolamento total de dados por empresa via RLS do Supabase.
+
+**🧪 40 testes automatizados** | **✅ 100% coverage** | **🚀 CI/CD no GitHub Actions**
 
 ## Stack
 
@@ -137,3 +144,61 @@ VITE_SUPABASE_ANON_KEY
 | `fotos-funcionario` | Privado | Fotos de perfil |
 | `certificados` | Privado | Certificados de treinamento |
 | `logos` | Público | Logos das empresas |
+
+## Testes
+
+SafeTrack possui suite completa de testes automatizados:
+
+```bash
+# Testes unitários (Vitest)
+cd web
+npm test                # 22 testes
+npm run test:coverage   # Com coverage report
+
+# Testes E2E (Playwright)
+npm run test:e2e        # 18 testes
+npm run test:e2e:ui     # Modo visual interativo
+```
+
+**Cobertura:**
+- ✅ 22 testes unitários (componentes, utils)
+- ✅ 18 testes E2E (fluxos completos)
+- ✅ 100% coverage nos arquivos testados
+- ✅ CI/CD roda automaticamente em cada push/PR
+
+Ver documentação completa: [`web/TESTES.md`](web/TESTES.md)
+
+## CI/CD
+
+GitHub Actions configurado com 3 workflows:
+
+1. **CI - Testes e Build** (`ci.yml`)
+   - Roda em cada push/PR
+   - ESLint + testes unitários + build
+   - Upload de coverage para Codecov
+
+2. **E2E - Testes End-to-End** (`e2e.yml`)
+   - Roda em push/PR para master/main
+   - Testes com Playwright no Chromium
+   - Screenshots de falhas como artifacts
+
+3. **Deploy - Vercel** (`deploy.yml`)
+   - Deploy automático quando merged na main
+   - Comentário com URL no PR
+
+### Configurar Secrets no GitHub
+
+Para habilitar CI/CD completo:
+
+```
+Settings → Secrets and variables → Actions → New repository secret
+
+# Para testes E2E
+TEST_USER_EMAIL = teste.e2e@safetrack.com
+TEST_USER_PASSWORD = Teste@123456
+
+# Para deploy Vercel (opcional)
+VERCEL_TOKEN = seu_token_vercel
+VERCEL_ORG_ID = org_xxxxx
+VERCEL_PROJECT_ID = prj_xxxxx
+```
