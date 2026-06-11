@@ -8,6 +8,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { supabase } from '@/lib/supabase'
 
@@ -17,6 +18,9 @@ const schema = z.object({
   nome_usuario: z.string().min(2, 'Seu nome é obrigatório'),
   email: z.string().email('E-mail inválido'),
   senha: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres'),
+  aceito_termos: z.boolean().refine(val => val === true, {
+    message: 'Você deve aceitar os termos para continuar'
+  }),
 })
 
 type FormData = z.infer<typeof schema>
