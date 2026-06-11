@@ -1,0 +1,3 @@
+# 🚀 Guia de Comercialização — SafeTrack SaaS
+
+Ver arquivo completo no repositório...
