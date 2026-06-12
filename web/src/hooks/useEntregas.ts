@@ -14,6 +14,11 @@ export interface EntregaEPI {
   devolvido: boolean
   data_devolucao?: string
   assinatura_base64?: string
+  assinatura_url?: string
+  biometria_hash?: string
+  biometria_tipo?: 'webauthn' | 'hardware' | 'assinatura'
+  biometria_dispositivo?: string
+  biometria_metadata?: any
   observacao?: string
   criado_em: string
   funcionarios?: { nome: string; matricula: string; cargo: string; setor: string } | null
@@ -60,13 +65,26 @@ export function useRegistrarEntrega() {
       data_vencimento?: string
       observacao?: string
       assinatura_base64?: string
+      biometria_hash?: string
+      biometria_tipo?: 'webauthn' | 'hardware' | 'assinatura'
+      biometria_dispositivo?: string
+      biometria_metadata?: any
     }) => {
       if (!perfil?.tenant_id) {
         throw new Error('Tenant não encontrado. Faça login novamente.')
       }
 
       const { error } = await supabase.from('entregas_epi').insert({
-        ...dados,
+        funcionario_id: dados.funcionario_id,
+        epi_id: dados.epi_id,
+        quantidade: dados.quantidade,
+        data_vencimento: dados.data_vencimento,
+        observacao: dados.observacao,
+        assinatura_url: dados.assinatura_base64,
+        biometria_hash: dados.biometria_hash,
+        biometria_tipo: dados.biometria_tipo,
+        biometria_dispositivo: dados.biometria_dispositivo,
+        biometria_metadata: dados.biometria_metadata,
         tenant_id: perfil.tenant_id,
         data_entrega: new Date().toISOString().split('T')[0],
       })

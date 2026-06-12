@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Teste Supabase</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .card {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+    .status {
+      padding: 10px;
+      border-radius: 4px;
+      margin: 10px 0;
+    }
+    .ok { background: #d4edda; color: #155724; }
+    .error { background: #f8d7da; color: #721c24; }
+    .info { background: #d1ecf1; color: #0c5460; }
+    button {
+      background: #007bff;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 5px;
+    }
+    button:hover { background: #0056b3; }
+    code {
+      background: #f4f4f4;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 0.9em;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>🔧 Teste de Conexão Supabase</h1>
+    <p>Este arquivo testa a conexão direta com o Supabase</p>
+  </div>
+
+  <div class="card">
+    <h2>1. Configuração</h2>
+    <div id="config"></div>
+  </div>
+
+  <div class="card">
+    <h2>2. Teste de Sessão</h2>
+    <button onclick="testarSessao()">Verificar Sessão</button>
+    <div id="sessao"></div>
+  </div>
+
+  <div class="card">
+    <h2>3. Teste de Login</h2>
+    <div style="margin-bottom: 10px;">
+      <input type="email" id="email" placeholder="E-mail" style="padding: 8px; width: 250px;">
+      <input type="password" id="senha" placeholder="Senha" style="padding: 8px; width: 250px;">
+    </div>
+    <button onclick="testarLogin()">Fazer Login</button>
+    <button onclick="testarLogout()">Fazer Logout</button>
+    <div id="login"></div>
+  </div>
+
+  <div class="card">
+    <h2>4. Teste de Tabelas</h2>
+    <button onclick="testarTabelas()">Verificar Tabelas</button>
+    <div id="tabelas"></div>
+  </div>
+
+  <script>
+    const SUPABASE_URL = 'https://fzgaercwkkxzkxendawm.supabase.co'
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ6Z2FlcmN3a2t4emt4ZW5kYXdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA2ODUzMzEsImV4cCI6MjA5NjI2MTMzMX0.Dn4XHtqV-amReq1UDLXK4mHaOEfRC3S7KskyZWW7roI'
+
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+
+    document.getElementById('config').innerHTML = `
+      <div class="status ok">
+        ✅ Cliente Supabase criado com sucesso<br>
+        <code>URL: ${SUPABASE_URL}</code><br>
+        <code>Key: ${SUPABASE_ANON_KEY.substring(0, 20)}...</code>
+      </div>
+    `
+
+    async function testarSessao() {
+      const div = document.getElementById('sessao')
+      div.innerHTML = '<div class="status info">⏳ Verificando sessão...</div>'
+
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession()
+
+        if (error) {
+          div.innerHTML = `<div class="status error">❌ Erro: ${error.message}</div>`
+          return
+        }
+
+        if (session) {
+          div.innerHTML = `
+            <div class="status ok">
+              ✅ Sessão ativa<br>
+              <code>User: ${session.user.email}</code><br>
+              <code>Expires: ${new Date(session.expires_at * 1000).toLocaleString('pt-BR')}</code>
+            </div>
+          `
+        } else {
+          div.innerHTML = '<div class="status info">ℹ️ Nenhuma sessão ativa</div>'
+        }
+      } catch (err) {
+        div.innerHTML = `<div class="status error">❌ Exceção: ${err.message}</div>`
+      }
+    }
+
+    async function testarLogin() {
+      const email = document.getElementById('email').value
+      const senha = document.getElementById('senha').value
+      const div = document.getElementById('login')
+
+      if (!email || !senha) {
+        div.innerHTML = '<div class="status error">❌ Preencha e-mail e senha</div>'
+        return
+      }
+
+      div.innerHTML = '<div class="status info">⏳ Fazendo login...</div>'
+
+      try {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password: senha
+        })
+
+        if (error) {
+          div.innerHTML = `<div class="status error">❌ Erro no login: ${error.message}</div>`
+          return
+        }
+
+        div.innerHTML = `
+          <div class="status ok">
+            ✅ Login realizado com sucesso!<br>
+            <code>User ID: ${data.user.id}</code><br>
+            <code>Email: ${data.user.email}</code><br>
+            <code>Session: ${data.session ? 'Ativa' : 'Inativa'}</code>
+          </div>
+        `
+
+        // Tentar carregar perfil
+        testarTabelas()
+      } catch (err) {
+        div.innerHTML = `<div class="status error">❌ Exceção: ${err.message}</div>`
+      }
+    }
+
+    async function testarLogout() {
+      const div = document.getElementById('login')
+      div.innerHTML = '<div class="status info">⏳ Fazendo logout...</div>'
+
+      try {
+        const { error } = await supabase.auth.signOut()
+
+        if (error) {
+          div.innerHTML = `<div class="status error">❌ Erro no logout: ${error.message}</div>`
+          return
+        }
+
+        div.innerHTML = '<div class="status ok">✅ Logout realizado com sucesso!</div>'
+      } catch (err) {
+        div.innerHTML = `<div class="status error">❌ Exceção: ${err.message}</div>`
+      }
+    }
+
+    async function testarTabelas() {
+      const div = document.getElementById('tabelas')
+      div.innerHTML = '<div class="status info">⏳ Verificando tabelas...</div>'
+
+      let resultado = ''
+
+      // Teste 1: Tenants
+      try {
+        const { data, error } = await supabase.from('tenants').select('id, nome').limit(1)
+        if (error) {
+          resultado += `<div class="status error">❌ Tabela tenants: ${error.message}</div>`
+        } else {
+          resultado += `<div class="status ok">✅ Tabela tenants: ${data?.length || 0} registro(s)</div>`
+        }
+      } catch (err) {
+        resultado += `<div class="status error">❌ Tabela tenants: ${err.message}</div>`
+      }
+
+      // Teste 2: Usuarios
+      try {
+        const { data, error } = await supabase.from('usuarios').select('id, nome').limit(1)
+        if (error) {
+          resultado += `<div class="status error">❌ Tabela usuarios: ${error.message}</div>`
+        } else {
+          resultado += `<div class="status ok">✅ Tabela usuarios: ${data?.length || 0} registro(s)</div>`
+        }
+      } catch (err) {
+        resultado += `<div class="status error">❌ Tabela usuarios: ${err.message}</div>`
+      }
+
+      // Teste 3: RPC get_my_tenant_id
+      try {
+        const { data, error } = await supabase.rpc('get_my_tenant_id')
+        if (error) {
+          resultado += `<div class="status error">❌ RPC get_my_tenant_id: ${error.message}</div>`
+        } else {
+          resultado += `<div class="status ok">✅ RPC get_my_tenant_id: ${data || 'null'}</div>`
+        }
+      } catch (err) {
+        resultado += `<div class="status error">❌ RPC get_my_tenant_id: ${err.message}</div>`
+      }
+
+      div.innerHTML = resultado
+    }
+
+    // Auto-verificar sessão ao carregar
+    testarSessao()
+  </script>
+</body>
+</html>

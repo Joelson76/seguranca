@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { Plus, Loader2, FileDown, RotateCcw, Package } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
@@ -15,6 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { TabelaResponsiva } from '@/components/shared/TabelaResponsiva'
 import { EmptyState } from '@/components/shared/EmptyState'
+import { BiometriaSeletor, type BiometriaData } from '@/components/biometria/BiometriaSeletor'
 import { useEntregas, useRegistrarEntrega, useRegistrarDevolucao, type EntregaEPI } from '@/hooks/useEntregas'
 import { supabase } from '@/lib/supabase'
 import { formatDate, formatDateTime } from '@/lib/utils'
@@ -34,9 +35,8 @@ export default function Entregas() {
   const [filtroInicio, setFiltroInicio] = useState('')
   const [filtroFim, setFiltroFim] = useState('')
   const [pagina, setPagina] = useState(0)
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const [assinando, setAssinando] = useState(false)
-  const [posInicial, setPosInicial] = useState({ x: 0, y: 0 })
+  const [dadosBiometria, setDadosBiometria] = useState<BiometriaData | { tipo: 'assinatura'; base64: string } | null>(null)
+  const [funcionarioSelecionado, setFuncionarioSelecionado] = useState<{ id: string; nome: string } | null>(null)
 
   const { data: entregas = [], isLoading } = useEntregas({
     funcionario_id: filtroFunc || undefined,
@@ -65,47 +65,41 @@ export default function Entregas() {
   const registrar = useRegistrarEntrega()
   const devolver = useRegistrarDevolucao()
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<FormData>({
+  const { register, handleSubmit, reset, watch, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema) as any,
     defaultValues: { quantidade: 1 },
   })
 
-  // ── Canvas helpers ──
-  function getPonto(e: React.MouseEvent | React.TouchEvent, canvas: HTMLCanvasElement) {
-    const rect = canvas.getBoundingClientRect()
-    const sx = canvas.width / rect.width
-    const sy = canvas.height / rect.height
-    if ('touches' in e) {
-      const t = e.touches[0]
-      return { x: (t.clientX - rect.left) * sx, y: (t.clientY - rect.top) * sy }
+  // Observar mudanças no funcionário selecionado
+  const funcionarioIdWatch = watch('funcionario_id')
+
+  // Atualizar funcionário selecionado quando mudar no form
+  useEffect(() => {
+    if (funcionarioIdWatch && funcionarios.length > 0) {
+      const func = funcionarios.find((f: any) => f.id === funcionarioIdWatch)
+      if (func) {
+        setFuncionarioSelecionado({ id: func.id, nome: func.nome })
+      }
     }
-    return { x: ((e as React.MouseEvent).clientX - rect.left) * sx, y: ((e as React.MouseEvent).clientY - rect.top) * sy }
-  }
-
-  function iniciarAssinatura(e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) {
-    e.preventDefault(); setAssinando(true); setPosInicial(getPonto(e, canvasRef.current!))
-  }
-
-  function desenhar(e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) {
-    e.preventDefault()
-    if (!assinando || !canvasRef.current) return
-    const ctx = canvasRef.current.getContext('2d')!
-    const { x, y } = getPonto(e, canvasRef.current)
-    ctx.beginPath(); ctx.moveTo(posInicial.x, posInicial.y); ctx.lineTo(x, y)
-    ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth = 2.5; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.stroke()
-    setPosInicial({ x, y })
-  }
-
-  function limparCanvas() {
-    const canvas = canvasRef.current
-    if (canvas) canvas.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height)
-  }
+  }, [funcionarioIdWatch, funcionarios])
 
   async function onSubmit(data: FormData) {
+    if (!dadosBiometria) {
+      toast.error('Capture a assinatura ou biometria do funcionário')
+      return
+    }
+
     let assinatura_url: string | undefined
-    const canvas = canvasRef.current
-    if (canvas) {
-      const blob = await new Promise<Blob | null>(res => canvas.toBlob(res, 'image/png'))
+    let biometria_hash: string | undefined
+    let biometria_tipo: 'webauthn' | 'hardware' | 'assinatura' = 'assinatura'
+    let biometria_dispositivo: string | undefined
+    let biometria_metadata: any
+
+    // Se for assinatura manual (base64)
+    if (dadosBiometria.tipo === 'assinatura') {
+      const base64 = (dadosBiometria as any).base64
+      const blob = await fetch(base64).then(r => r.blob())
+
       if (blob && blob.size > 1000) {
         const file = new File([blob], `assinatura-${Date.now()}.png`, { type: 'image/png' })
         const { data: up } = await supabase.storage.from('assinaturas').upload(`${Date.now()}_${file.name}`, file)
@@ -114,21 +108,44 @@ export default function Entregas() {
           assinatura_url = urlData.publicUrl
         }
       }
+    } else {
+      // Se for biometria (webauthn ou hardware)
+      const bioData = dadosBiometria as BiometriaData
+      biometria_hash = bioData.hash
+      biometria_tipo = bioData.tipo
+      biometria_dispositivo = bioData.dispositivo
+      biometria_metadata = bioData.metadata
     }
-    await registrar.mutateAsync({ ...data, assinatura_base64: assinatura_url })
+
+    await registrar.mutateAsync({
+      ...data,
+      assinatura_base64: assinatura_url,
+      biometria_hash,
+      biometria_tipo,
+      biometria_dispositivo,
+      biometria_metadata,
+    })
+
     setModalAberto(false)
     reset()
-    limparCanvas()
+    setDadosBiometria(null)
+    setFuncionarioSelecionado(null)
+  }
+
+  function handleCapturaBiometria(dados: BiometriaData | { tipo: 'assinatura'; base64: string }) {
+    setDadosBiometria(dados)
   }
 
   function gerarPDF(e: EntregaEPI) {
     const doc = new jsPDF()
     const func = e.funcionarios as any
     const epi = e.epis as any
+
     doc.setFontSize(14); doc.text('COMPROVANTE DE ENTREGA DE EPI', 105, 20, { align: 'center' })
     doc.setFontSize(9)
     doc.text(`Funcionário: ${func?.nome ?? '-'} | Matrícula: ${func?.matricula ?? '-'}`, 14, 35)
     doc.text(`Cargo: ${func?.cargo ?? '-'} | Setor: ${func?.setor ?? '-'}`, 14, 41)
+
     autoTable(doc, {
       startY: 48,
       head: [['EPI', 'CA', 'Quantidade', 'Data Entrega', 'Vencimento']],
@@ -136,10 +153,26 @@ export default function Entregas() {
       styles: { fontSize: 8 },
       headStyles: { fillColor: [37, 99, 235] },
     })
-    const y = (doc as any).lastAutoTable.finalY + 20
-    doc.text('Declaro ter recebido o EPI acima em perfeito estado.', 14, y)
-    doc.line(14, y + 15, 100, y + 15)
-    doc.text('Assinatura do Funcionário', 14, y + 20)
+
+    let y = (doc as any).lastAutoTable.finalY + 20
+
+    // Adicionar informação do método de autenticação
+    if (e.biometria_tipo && e.biometria_tipo !== 'assinatura') {
+      doc.setFontSize(8)
+      doc.setTextColor(0, 128, 0) // Verde
+      const metodo = e.biometria_tipo === 'webauthn'
+        ? `Autenticado via ${e.biometria_dispositivo || 'Biometria do Dispositivo'}`
+        : `Autenticado via Leitor Biométrico - ${e.biometria_dispositivo || 'Hardware'}`
+      doc.text(`✓ ${metodo}`, 14, y)
+      doc.text(`Hash: ${e.biometria_hash?.substring(0, 32)}...`, 14, y + 4)
+      doc.setTextColor(0, 0, 0) // Volta para preto
+      y += 15
+    } else {
+      doc.text('Declaro ter recebido o EPI acima em perfeito estado.', 14, y)
+      doc.line(14, y + 15, 100, y + 15)
+      doc.text('Assinatura do Funcionário', 14, y + 20)
+    }
+
     doc.save(`entrega-epi-${func?.matricula ?? 'sem-mat'}.pdf`)
   }
 
@@ -171,7 +204,7 @@ export default function Entregas() {
           <h1 className="text-2xl font-bold">Entregas de EPI</h1>
           <p className="text-muted-foreground">Registre e acompanhe as entregas</p>
         </div>
-        <Button onClick={() => { setModalAberto(true); reset(); limparCanvas() }}>
+        <Button onClick={() => { setModalAberto(true); reset(); setDadosBiometria(null); setFuncionarioSelecionado(null) }}>
           <Plus className="h-4 w-4" /> Nova Entrega
         </Button>
       </div>
@@ -247,7 +280,20 @@ export default function Entregas() {
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-2">
               <Label>Funcionário</Label>
-              <select {...register('funcionario_id')} className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm">
+              <select
+                {...register('funcionario_id')}
+                onChange={(e) => {
+                  register('funcionario_id').onChange(e)
+                  const func = funcionarios.find((f: any) => f.id === e.target.value)
+                  if (func) {
+                    setFuncionarioSelecionado({ id: func.id, nome: func.nome })
+                  } else {
+                    setFuncionarioSelecionado(null)
+                  }
+                  setDadosBiometria(null)
+                }}
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+              >
                 <option value="">Selecione...</option>
                 {funcionarios.map((f: any) => <option key={f.id} value={f.id}>{f.nome} — {f.matricula}</option>)}
               </select>
@@ -271,19 +317,18 @@ export default function Entregas() {
                 <Input type="date" {...register('data_vencimento')} />
               </div>
             </div>
-            <div className="space-y-2">
-              <Label>Assinatura do Funcionário</Label>
-              <div className="border rounded-md p-2 bg-muted/20">
-                <canvas
-                  ref={canvasRef} width={400} height={100}
-                  className="w-full cursor-crosshair border rounded bg-white touch-none"
-                  onMouseDown={iniciarAssinatura} onMouseMove={desenhar}
-                  onMouseUp={() => setAssinando(false)} onMouseLeave={() => setAssinando(false)}
-                  onTouchStart={iniciarAssinatura} onTouchMove={desenhar} onTouchEnd={() => setAssinando(false)}
-                />
-                <Button type="button" variant="ghost" size="sm" className="mt-1" onClick={limparCanvas}>Limpar</Button>
-              </div>
-            </div>
+            {funcionarioSelecionado && (
+              <BiometriaSeletor
+                funcionarioId={funcionarioSelecionado.id}
+                funcionarioNome={funcionarioSelecionado.nome}
+                onCaptura={handleCapturaBiometria}
+              />
+            )}
+            {!funcionarioSelecionado && (
+              <p className="text-sm text-muted-foreground text-center py-4 border rounded-md bg-muted/20">
+                Selecione um funcionário para capturar a assinatura/biometria
+              </p>
+            )}
             <div className="space-y-2">
               <Label>Observações</Label>
               <Input {...register('observacao')} placeholder="Opcional" />

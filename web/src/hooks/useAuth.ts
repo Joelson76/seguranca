@@ -6,16 +6,40 @@ export function useAuth() {
   const { user, session, perfil, carregando, setUser, setSession, setPerfil, setCarregando, limpar } = useAuthStore()
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setSession(session)
-      setUser(session?.user ?? null)
-      if (session?.user) {
-        await carregarPerfil(session.user.id)
+    let mounted = true
+
+    async function inicializar() {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession()
+
+        if (!mounted) return
+
+        if (error) {
+          console.error('Erro ao obter sessão:', error)
+          setCarregando(false)
+          return
+        }
+
+        setSession(session)
+        setUser(session?.user ?? null)
+
+        if (session?.user) {
+          await carregarPerfil(session.user.id)
+        }
+      } catch (err) {
+        console.error('Erro na inicialização do auth:', err)
+      } finally {
+        if (mounted) {
+          setCarregando(false)
+        }
       }
-      setCarregando(false)
-    })
+    }
+
+    inicializar()
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!mounted) return
+
       setSession(session)
       setUser(session?.user ?? null)
       if (session?.user) {
@@ -25,7 +49,10 @@ export function useAuth() {
       }
     })
 
-    return () => subscription.unsubscribe()
+    return () => {
+      mounted = false
+      subscription.unsubscribe()
+    }
   }, [])
 
   async function carregarPerfil(userId: string) {
@@ -36,9 +63,16 @@ export function useAuth() {
         .eq('user_id', userId)
         .maybeSingle()
 
-      if (!error && data) {
+      if (error) {
+        console.error('Erro RLS/SQL ao carregar perfil:', error)
+        setPerfil(null)
+        return
+      }
+
+      if (data) {
         setPerfil(data)
       } else {
+        console.warn('Usuário autenticado mas sem registro na tabela usuarios')
         setPerfil(null)
       }
     } catch (err) {

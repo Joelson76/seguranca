@@ -63,10 +63,9 @@ export default function Registro() {
       const { error: perfilError } = await supabase
         .from('usuarios')
         .insert({
-          user_id: authData.user.id,
+          id: authData.user.id,
           tenant_id: tenant.id,
           nome: data.nome_usuario,
-          email: data.email,
           perfil: 'admin',
           ativo: true
         })

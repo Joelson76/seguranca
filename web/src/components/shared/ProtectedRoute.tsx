@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
@@ -9,6 +10,23 @@ interface Props {
 
 export function ProtectedRoute({ children, perfisPermitidos }: Props) {
   const { user, perfil, carregando } = useAuth()
+  const [timeout, setTimeout] = useState(false)
+
+  // Timeout de segurança de 10 segundos
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      if (carregando) {
+        console.error('Timeout na autenticação - redirecionando para login')
+        setTimeout(true)
+      }
+    }, 10000)
+
+    return () => clearTimeout(timer)
+  }, [carregando])
+
+  if (timeout) {
+    return <Navigate to="/login" replace />
+  }
 
   if (carregando) {
     return (
