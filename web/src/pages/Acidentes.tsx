@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Upload, AlertTriangle, FileText, Download, ExternalLink, Eye } from 'lucide-react'
+import { Plus, Upload, AlertTriangle, FileText, Download, ExternalLink, Eye, Users, ClipboardCheck, ListChecks, AlertCircle } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -15,7 +15,10 @@ import { Textarea } from '@/components/ui/textarea'
 import { SkeletonTabela } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { TabelaResponsiva } from '@/components/shared/TabelaResponsiva'
-import { useAcidentes, useRegistrarAcidente, useAvancarStatus, type Acidente } from '@/hooks/useAcidentes'
+import {
+  useAcidentes, useRegistrarAcidente, useAvancarStatus, useAlertasAcidentes,
+  type Acidente
+} from '@/hooks/useAcidentes'
 import { supabase } from '@/lib/supabase'
 import { formatDate } from '@/lib/utils'
 
@@ -28,11 +31,25 @@ const TIPOS = [
   { value: 'doenca_ocupacional', label: 'Doença ocupacional' },
 ]
 
+const METODOS_ANALISE = [
+  { value: '5_porques', label: '5 Porquês' },
+  { value: 'ishikawa', label: 'Diagrama Ishikawa' },
+  { value: 'arvore_causas', label: 'Árvore de Causas' },
+  { value: 'outro', label: 'Outro' },
+]
+
 const STATUS_COR: Record<string, 'danger' | 'warning' | 'success' | 'secondary'> = {
   aberto: 'danger', em_investigacao: 'warning', concluido: 'success', arquivado: 'secondary',
 }
 const STATUS_LABEL: Record<string, string> = {
   aberto: 'Aberto', em_investigacao: 'Em investigação', concluido: 'Concluído', arquivado: 'Arquivado',
+}
+
+const STATUS_CAT_COR: Record<string, 'danger' | 'warning' | 'success' | 'secondary'> = {
+  pendente: 'warning', enviada: 'secondary', aceita: 'success', rejeitada: 'danger',
+}
+const STATUS_CAT_LABEL: Record<string, string> = {
+  pendente: 'Pendente', enviada: 'Enviada', aceita: 'Aceita', rejeitada: 'Rejeitada',
 }
 
 const schema = z.object({
@@ -42,10 +59,16 @@ const schema = z.object({
   hora_ocorrencia: z.string().min(1, 'Obrigatório'),
   local_ocorrencia: z.string().min(1, 'Obrigatório'),
   descricao: z.string().min(10, 'Descreva com mais detalhes'),
+  parte_corpo_atingida: z.string().optional(),
+  gravidade: z.coerce.number().min(1).max(5).optional(),
   causa_imediata: z.string().optional(),
+  causa_basica: z.string().optional(),
+  metodo_analise: z.string().optional(),
   medidas_corretivas: z.string().optional(),
   dias_afastamento: z.coerce.number().optional(),
   cat: z.boolean(),
+  numero_cat: z.string().optional(),
+  responsavel_investigacao: z.string().optional(),
 })
 type FormData = z.infer<typeof schema>
 
@@ -55,6 +78,7 @@ export default function Acidentes() {
   const [modalVisualizarEvidencias, setModalVisualizarEvidencias] = useState(false)
   const [acidenteSelecionado, setAcidenteSelecionado] = useState<Acidente | null>(null)
   const [evidencias, setEvidencias] = useState<File[]>([])
+  const [categoriaEvidencia, setCategoriaEvidencia] = useState<string>('outros')
   const [enviandoEvid, setEnviandoEvid] = useState(false)
   const [pagina, setPagina] = useState(0)
   const [fileInputKey, setFileInputKey] = useState(Date.now())
@@ -62,11 +86,20 @@ export default function Acidentes() {
   const { data: acidentes = [], isLoading } = useAcidentes(pagina)
   const registrar = useRegistrarAcidente()
   const avancar = useAvancarStatus()
+  const { data: alertas = [] } = useAlertasAcidentes()
 
   const { data: funcionarios = [] } = useQuery({
     queryKey: ['funcionarios-select'],
     queryFn: async () => {
       const { data } = await supabase.from('funcionarios').select('id, nome, matricula').eq('ativo', true).order('nome')
+      return data ?? []
+    },
+  })
+
+  const { data: usuarios = [] } = useQuery({
+    queryKey: ['usuarios-select'],
+    queryFn: async () => {
+      const { data } = await supabase.from('usuarios').select('id, nome').order('nome')
       return data ?? []
     },
   })
@@ -86,15 +119,18 @@ export default function Acidentes() {
     enabled: !!acidenteSelecionado?.id,
   })
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<FormData>({
+  const { register, handleSubmit, reset, watch, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema) as any,
-    defaultValues: { cat: false as boolean },
+    defaultValues: { cat: false as boolean, gravidade: 3 },
   })
+
+  const tipoSelecionado = watch('tipo')
+  const catMarcada = watch('cat')
 
   async function onSubmit(data: FormData) {
     await registrar.mutateAsync(data as any)
     setModalRegistro(false)
-    reset({ cat: false as boolean })
+    reset({ cat: false as boolean, gravidade: 3 })
   }
 
   async function enviarEvidencias() {
@@ -115,6 +151,8 @@ export default function Acidentes() {
             arquivo_url: uploaded.path,
             acidente_id: acidenteSelecionado.id,
             tenant_id: acidenteSelecionado.tenant_id,
+            categoria_evidencia: categoriaEvidencia,
+            tamanho_bytes: arquivo.size,
           }
 
           const { error: insertError } = await supabase.from('documentos').insert(registro)
@@ -134,7 +172,6 @@ export default function Acidentes() {
   }
 
   async function abrirEvidencia(path: string) {
-    // Gera URL assinada válida por 1 hora (bucket privado)
     const { data, error } = await supabase.storage
       .from('acidentes')
       .createSignedUrl(path, 3600)
@@ -152,9 +189,23 @@ export default function Acidentes() {
     { header: 'Tipo', hideMobile: true, cell: (a: Acidente) => <span className="text-xs text-muted-foreground">{TIPOS.find(t => t.value === a.tipo)?.label}</span> },
     { header: 'Data', cell: (a: Acidente) => <span className="text-muted-foreground">{formatDate(a.data_ocorrencia)}</span> },
     { header: 'Local', hideMobile: true, cell: (a: Acidente) => <span className="text-muted-foreground text-xs truncate max-w-[120px] block">{a.local_ocorrencia}</span> },
-    { header: 'CAT', hideMobile: true, cell: (a: Acidente) => a.cat ? <Badge variant="warning">CAT</Badge> : <span className="text-muted-foreground text-xs">—</span> },
+    {
+      header: 'CAT',
+      hideMobile: true,
+      cell: (a: Acidente) => a.cat ? (
+        <Badge variant={STATUS_CAT_COR[a.status_cat ?? 'pendente']}>
+          {STATUS_CAT_LABEL[a.status_cat ?? 'pendente']}
+        </Badge>
+      ) : <span className="text-muted-foreground text-xs">—</span>
+    },
     { header: 'Status', cell: (a: Acidente) => <Badge variant={STATUS_COR[a.status] ?? 'secondary'}>{STATUS_LABEL[a.status]}</Badge> },
   ]
+
+  const alertasPorAcidente = alertas.reduce((acc, a) => {
+    if (!acc[a.acidente_id]) acc[a.acidente_id] = []
+    acc[a.acidente_id].push(a)
+    return acc
+  }, {} as Record<string, typeof alertas>)
 
   return (
     <div className="space-y-6">
@@ -163,10 +214,31 @@ export default function Acidentes() {
           <h1 className="text-2xl font-bold">Acidentes e Incidentes</h1>
           <p className="text-muted-foreground">Registro e investigação de ocorrências</p>
         </div>
-        <Button onClick={() => { setModalRegistro(true); reset({ cat: false as boolean }) }}>
+        <Button onClick={() => { setModalRegistro(true); reset({ cat: false as boolean, gravidade: 3 }) }}>
           <Plus className="h-4 w-4" /> Registrar Ocorrência
         </Button>
       </div>
+
+      {alertas.length > 0 && (
+        <Card className="border-orange-200 bg-orange-50">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2 text-orange-700">
+              <AlertCircle className="h-5 w-5" />
+              Alertas ({alertas.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {alertas.slice(0, 5).map((alerta, i) => (
+                <div key={i} className="text-sm flex items-start gap-2 text-orange-800">
+                  <span className="font-medium">•</span>
+                  <span>{alerta.mensagem}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader><CardTitle className="text-base">Ocorrências registradas</CardTitle></CardHeader>
@@ -178,7 +250,12 @@ export default function Acidentes() {
                 dados={acidentes}
                 keyExtractor={a => a.id}
                 acoes={(a) => (
-                  <div className="flex gap-1">
+                  <div className="flex gap-1 flex-wrap">
+                    {alertasPorAcidente[a.id]?.length > 0 && (
+                      <Badge variant="warning" className="text-[10px] px-1.5 py-0.5">
+                        {alertasPorAcidente[a.id].length} alerta(s)
+                      </Badge>
+                    )}
                     <Button variant="ghost" size="icon" title="Ver evidências"
                       onClick={() => {
                         setAcidenteSelecionado(a)
@@ -188,8 +265,12 @@ export default function Acidentes() {
                       <Eye className="h-3.5 w-3.5" />
                     </Button>
                     <Button variant="ghost" size="icon" title="Adicionar evidências"
-                      onClick={() => { setAcidenteSelecionado(a); setModalEvidencias(true); setEvidencias([]) }}>
+                      onClick={() => { setAcidenteSelecionado(a); setModalEvidencias(true); setEvidencias([]); setCategoriaEvidencia('outros') }}>
                       <Upload className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button variant="ghost" size="icon" title="Investigação detalhada"
+                      onClick={() => window.location.href = `/app/acidentes/${a.id}`}>
+                      <ListChecks className="h-3.5 w-3.5" />
                     </Button>
                     {a.status !== 'arquivado' && (
                       <Button variant="outline" size="sm"
@@ -218,54 +299,95 @@ export default function Acidentes() {
 
       {/* Modal Registro */}
       <Dialog open={modalRegistro} onOpenChange={setModalRegistro}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Registrar Ocorrência</DialogTitle></DialogHeader>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <div className="space-y-2">
-              <Label>Funcionário envolvido</Label>
-              <select {...register('funcionario_id')} className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm">
-                <option value="">Selecione...</option>
-                {funcionarios.map((f: any) => <option key={f.id} value={f.id}>{f.nome}</option>)}
-              </select>
-              {errors.funcionario_id && <p className="text-xs text-destructive">{errors.funcionario_id.message}</p>}
-            </div>
-            <div className="space-y-2">
-              <Label>Tipo</Label>
-              <select {...register('tipo')} className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm">
-                <option value="">Selecione...</option>
-                {TIPOS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-              </select>
-              {errors.tipo && <p className="text-xs text-destructive">{errors.tipo.message}</p>}
-            </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Data</Label>
+                <Label>Funcionário envolvido *</Label>
+                <select {...register('funcionario_id')} className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm">
+                  <option value="">Selecione...</option>
+                  {funcionarios.map((f: any) => <option key={f.id} value={f.id}>{f.nome}</option>)}
+                </select>
+                {errors.funcionario_id && <p className="text-xs text-destructive">{errors.funcionario_id.message}</p>}
+              </div>
+              <div className="space-y-2">
+                <Label>Tipo *</Label>
+                <select {...register('tipo')} className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm">
+                  <option value="">Selecione...</option>
+                  {TIPOS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                </select>
+                {errors.tipo && <p className="text-xs text-destructive">{errors.tipo.message}</p>}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label>Data *</Label>
                 <Input type="date" {...register('data_ocorrencia')} />
               </div>
               <div className="space-y-2">
-                <Label>Hora</Label>
+                <Label>Hora *</Label>
                 <Input type="time" {...register('hora_ocorrencia')} />
               </div>
+              <div className="space-y-2">
+                <Label>Gravidade (1-5)</Label>
+                <Input type="number" min={1} max={5} {...register('gravidade')} />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label>Local</Label>
-              <Input {...register('local_ocorrencia')} placeholder="Ex: Setor de produção, linha 3" />
-              {errors.local_ocorrencia && <p className="text-xs text-destructive">{errors.local_ocorrencia.message}</p>}
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Local *</Label>
+                <Input {...register('local_ocorrencia')} placeholder="Ex: Setor de produção, linha 3" />
+                {errors.local_ocorrencia && <p className="text-xs text-destructive">{errors.local_ocorrencia.message}</p>}
+              </div>
+              <div className="space-y-2">
+                <Label>Parte do corpo atingida</Label>
+                <Input {...register('parte_corpo_atingida')} placeholder="Ex: Mão direita" />
+              </div>
             </div>
+
             <div className="space-y-2">
-              <Label>Descrição detalhada</Label>
+              <Label>Descrição detalhada *</Label>
               <Textarea {...register('descricao')} rows={3} placeholder="Descreva o que aconteceu..." />
               {errors.descricao && <p className="text-xs text-destructive">{errors.descricao.message}</p>}
             </div>
-            <div className="space-y-2">
-              <Label>Causa imediata</Label>
-              <Input {...register('causa_imediata')} placeholder="Ex: Falta de EPI, piso escorregadio..." />
-            </div>
-            <div className="space-y-2">
-              <Label>Medidas corretivas</Label>
-              <Textarea {...register('medidas_corretivas')} rows={2} placeholder="Ações tomadas..." />
-            </div>
+
             <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Causa imediata</Label>
+                <Input {...register('causa_imediata')} placeholder="Ex: Falta de EPI..." />
+              </div>
+              <div className="space-y-2">
+                <Label>Causa básica</Label>
+                <Input {...register('causa_basica')} placeholder="Ex: Treinamento insuficiente..." />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Método de análise</Label>
+                <select {...register('metodo_analise')} className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm">
+                  <option value="">Selecione...</option>
+                  {METODOS_ANALISE.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label>Responsável pela investigação</Label>
+                <select {...register('responsavel_investigacao')} className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm">
+                  <option value="">Selecione...</option>
+                  {usuarios.map((u: any) => <option key={u.id} value={u.id}>{u.nome}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Medidas corretivas imediatas</Label>
+              <Textarea {...register('medidas_corretivas')} rows={2} placeholder="Ações tomadas no momento..." />
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label>Dias de afastamento</Label>
                 <Input type="number" min={0} {...register('dias_afastamento')} placeholder="0" />
@@ -274,7 +396,20 @@ export default function Acidentes() {
                 <input type="checkbox" id="cat" {...register('cat')} className="h-4 w-4 rounded" />
                 <Label htmlFor="cat">Emitir CAT</Label>
               </div>
+              {catMarcada && (
+                <div className="space-y-2">
+                  <Label>Nº CAT</Label>
+                  <Input {...register('numero_cat')} placeholder="Ex: 123456" />
+                </div>
+              )}
             </div>
+
+            {tipoSelecionado === 'acidente_com_afastamento' && !catMarcada && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded p-3 text-sm text-yellow-800">
+                <strong>Atenção:</strong> Acidentes com afastamento normalmente exigem emissão de CAT.
+              </div>
+            )}
+
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setModalRegistro(false)}>Cancelar</Button>
               <Button type="submit" disabled={registrar.isPending}>
@@ -295,26 +430,43 @@ export default function Acidentes() {
             </p>
 
             {evidenciasExistentes.length > 0 ? (
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Evidências anexadas ({evidenciasExistentes.length})</Label>
-                <div className="border rounded-md divide-y max-h-96 overflow-y-auto">
-                  {evidenciasExistentes.map((doc: any) => (
-                    <div key={doc.id} className="flex items-center justify-between p-3 hover:bg-muted/50">
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <FileText className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                        <span className="text-sm truncate" title={doc.nome}>{doc.nome}</span>
+              <div className="space-y-3">
+                {['fotos_local', 'laudos_medicos', 'depoimentos', 'analise_tecnica', 'outros'].map(categoria => {
+                  const evidenciasCat = evidenciasExistentes.filter((e: any) => e.categoria_evidencia === categoria)
+                  if (evidenciasCat.length === 0) return null
+
+                  const categoriaLabels: Record<string, string> = {
+                    fotos_local: 'Fotos do Local',
+                    laudos_medicos: 'Laudos Médicos',
+                    depoimentos: 'Depoimentos',
+                    analise_tecnica: 'Análise Técnica',
+                    outros: 'Outros',
+                  }
+
+                  return (
+                    <div key={categoria}>
+                      <Label className="text-sm font-medium">{categoriaLabels[categoria]} ({evidenciasCat.length})</Label>
+                      <div className="border rounded-md divide-y mt-2">
+                        {evidenciasCat.map((doc: any) => (
+                          <div key={doc.id} className="flex items-center justify-between p-2 hover:bg-muted/50">
+                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                              <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                              <span className="text-xs truncate" title={doc.nome}>{doc.nome}</span>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => abrirEvidencia(doc.arquivo_url)}
+                              title="Abrir evidência"
+                            >
+                              <ExternalLink className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        ))}
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => abrirEvidencia(doc.arquivo_url)}
-                        title="Abrir evidência"
-                      >
-                        <ExternalLink className="h-4 w-4" />
-                      </Button>
                     </div>
-                  ))}
-                </div>
+                  )
+                })}
               </div>
             ) : (
               <div className="text-center py-8 text-muted-foreground">
@@ -339,7 +491,22 @@ export default function Acidentes() {
             </p>
 
             <div className="space-y-2">
-              <Label>Selecione os arquivos (fotos, laudos, boletins)</Label>
+              <Label>Categoria da evidência</Label>
+              <select
+                value={categoriaEvidencia}
+                onChange={(e) => setCategoriaEvidencia(e.target.value)}
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+              >
+                <option value="fotos_local">Fotos do Local</option>
+                <option value="laudos_medicos">Laudos Médicos</option>
+                <option value="depoimentos">Depoimentos</option>
+                <option value="analise_tecnica">Análise Técnica</option>
+                <option value="outros">Outros</option>
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Selecione os arquivos</Label>
               <input
                 key={fileInputKey}
                 type="file"

@@ -24,6 +24,8 @@ const Entregas       = lazy(() => import('@/pages/Entregas'))
 const Treinamentos   = lazy(() => import('@/pages/Treinamentos'))
 const MatrizTrein    = lazy(() => import('@/pages/MatrizTreinamentos'))
 const Acidentes      = lazy(() => import('@/pages/Acidentes'))
+const AcidenteDetalhe = lazy(() => import('@/pages/AcidenteDetalhe'))
+const IndicadoresSESMT = lazy(() => import('@/pages/IndicadoresSESMT'))
 const Documentos     = lazy(() => import('@/pages/Documentos'))
 const Relatorios     = lazy(() => import('@/pages/Relatorios'))
 const Notificacoes   = lazy(() => import('@/pages/app/Notificacoes').then(m => ({ default: m.Notificacoes })))
@@ -95,6 +97,8 @@ export default function App() {
                 <Route path="/app/treinamentos" element={<Treinamentos />} />
                 <Route path="/app/treinamentos/matriz" element={<MatrizTrein />} />
                 <Route path="/app/acidentes" element={<Acidentes />} />
+                <Route path="/app/acidentes/:id" element={<AcidenteDetalhe />} />
+                <Route path="/app/indicadores-sesmt" element={<IndicadoresSESMT />} />
                 <Route path="/app/documentos" element={<Documentos />} />
                 <Route path="/app/relatorios" element={<Relatorios />} />
                 <Route path="/app/notificacoes" element={<Notificacoes />} />

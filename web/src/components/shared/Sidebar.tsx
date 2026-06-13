@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, Users, Shield, Package, BookOpen,
   AlertTriangle, FileText, BarChart3, Settings,
-  ChevronLeft, ChevronRight, Building2, X,
+  ChevronLeft, ChevronRight, Building2, X, Activity,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useUIStore } from '@/store/uiStore'
@@ -15,6 +15,7 @@ const navItems = [
   { href: '/app/entregas',      icon: Package,         label: 'Entregas de EPI' },
   { href: '/app/treinamentos',  icon: BookOpen,        label: 'Treinamentos' },
   { href: '/app/acidentes',     icon: AlertTriangle,   label: 'Acidentes' },
+  { href: '/app/indicadores-sesmt', icon: Activity,    label: 'Indicadores SESMT' },
   { href: '/app/documentos',    icon: FileText,        label: 'Documentos' },
   { href: '/app/relatorios',    icon: BarChart3,       label: 'Relatórios' },
   { href: '/app/configuracoes', icon: Settings,        label: 'Configurações' },

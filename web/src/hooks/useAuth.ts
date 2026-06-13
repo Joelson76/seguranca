@@ -57,22 +57,28 @@ export function useAuth() {
 
   async function carregarPerfil(userId: string) {
     try {
-      const { data, error } = await supabase
+      console.log('🔍 Buscando perfil para userId:', userId)
+
+      // Buscar por user_id OU id
+      let { data, error } = await supabase
         .from('usuarios')
         .select('*')
-        .eq('user_id', userId)
+        .or(`id.eq.${userId},user_id.eq.${userId}`)
         .maybeSingle()
 
+      console.log('📊 Resultado:', { data, error })
+
       if (error) {
-        console.error('Erro RLS/SQL ao carregar perfil:', error)
+        console.error('❌ Erro:', error)
         setPerfil(null)
         return
       }
 
       if (data) {
+        console.log('✅ Perfil carregado:', data)
         setPerfil(data)
       } else {
-        console.warn('Usuário autenticado mas sem registro na tabela usuarios')
+        console.error('❌ Perfil não encontrado')
         setPerfil(null)
       }
     } catch (err) {

@@ -41,7 +41,6 @@ export function ProtectedRoute({ children, perfisPermitidos }: Props) {
 
   if (!user) return <Navigate to="/login" replace />
 
-  // Usuário autenticado mas sem perfil → primeiro acesso, ir para onboarding
   if (!perfil) return <Navigate to="/onboarding" replace />
 
   if (perfisPermitidos && !perfisPermitidos.includes(perfil.perfil)) {

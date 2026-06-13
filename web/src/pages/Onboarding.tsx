@@ -50,6 +50,7 @@ export default function Onboarding() {
       const { data: perfil, error: perfilError } = await supabase
         .from('usuarios')
         .insert({
+          id: user.id,
           user_id: user.id,
           tenant_id: tenant.id,
           nome: data.nome_usuario,
